@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Leaflet Map with Triangulation Lines</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <style>
+      #map {
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+      // Initialize the map
+      const map = L.map("map").setView([45.595, 14.457], 13); // Center at specific location with zoom level 13
+
+      const tileUrl =
+        "https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=qdtvjq9Ve9ElOZVZ54IX";
+      // Add tile layer
+      L.tileLayer(tileUrl, {
+        maxZoom: 19,
+      }).addTo(map);
+
+      const basePoint = [45.595, 14.457];
+
+      const noise = 0.01;
+
+      // Points representing sensor locations
+      const points = [];
+      points.push([45.575, 14.454]);
+      points.push([45.563, 14.467]);
+      points.push([45.575, 14.48]);
+
+      // Randomly generate the rest of the points like before
+      const points2 = [];
+      const rows = 10; // Number of rows in the grid
+      const cols = 3; // Number of columns in the grid
+      const latStep = 0.02; // Latitude step size for grid spacing
+      const lngStep = 0.02; // Longitude step size for grid spacing
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const lat = basePoint[0] + row * latStep + Math.random() * noise;
+          const lng = basePoint[1] + col * lngStep + Math.random() * noise;
+          points2.push([lat, lng]);
+        }
+      }
+
+      // Combine all sensor points
+      const allSensors = points.concat(points2);
+
+      // Detection range radius in meters
+      const detectionRadius = 10000;
+
+      // Array to store sensor data without drawing circles
+      const sensors = [];
+
+      const redIcon = L.icon({
+        iconUrl: "point.png", // Red marker
+        iconSize: [25, 41], // Size of the icon
+        iconAnchor: [12, 41], // Point of the icon which will correspond to marker's location
+        popupAnchor: [1, -34], // Point from which the popup should open relative to the iconAnchor
+      });
+
+      const blueIcon = L.icon({
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", // Red marker
+        iconSize: [25, 41], // Size of the icon
+        iconAnchor: [12, 41], // Point of the icon which will correspond to marker's location
+        popupAnchor: [1, -34], // Point from which the popup should open relative to the iconAnchor
+      });
+
+      const greenIcon = L.icon({
+        iconUrl:
+          "https://ext.qmegas.info/images/hiking/marker-icon-2x-green.png", // Red marker
+        iconSize: [25, 41], // Size of the icon
+        iconAnchor: [12, 41], // Point of the icon which will correspond to marker's location
+        popupAnchor: [1, -34], // Point from which the popup should open relative to the iconAnchor
+      });
+
+      // Add markers for sensors
+      allSensors.forEach(([lat, lng], index) => {
+        // Add sensor markers
+        const sensorMarker = L.marker([lat, lng])
+          .addTo(map)
+          .bindPopup(`Sensor ${index + 1}`);
+
+        // Store sensor data
+        sensors.push({
+          center: L.latLng(lat, lng),
+          radius: detectionRadius, // in meters
+          marker: sensorMarker,
+        });
+        console.log(sensorMarker);
+      });
+
+      // Layer groups for lines and markers
+      const detectionLayerGroup = L.layerGroup().addTo(map);
+      let detectionMarker;
+
+      // Find sensors that detect the point
+      let detectingSensors = [];
+
+      const updateDetectionLocation = (clickedPoint) => {
+        // Clear previous detections
+        detectionLayerGroup.clearLayers();
+        if (detectionMarker) {
+          map.removeLayer(detectionMarker);
+        }
+
+        console.log(detectingSensors);
+
+        detectingSensors.forEach((sensor) => {
+          sensor.sensorMarker.setIcon(blueIcon);
+        });
+
+        detectingSensors = [];
+
+        sensors.forEach(function (sensor, index) {
+          const distance = map.distance(clickedPoint, sensor.center);
+          if (distance <= sensor.radius) {
+            detectingSensors.push({
+              index: index,
+              center: sensor.center,
+              sensorMarker: sensor.marker,
+            });
+
+            sensor.marker.setIcon(redIcon);
+          }
+        });
+
+        if (detectingSensors.length >= 3) {
+          // Draw lines from detecting sensors to the clicked point
+          detectingSensors.forEach(function (detSensor) {
+            const latlngs = [detSensor.center, clickedPoint];
+            const polyline = L.polyline(latlngs, { color: "blue" }).addTo(
+              detectionLayerGroup,
+            );
+          });
+
+          // Place a marker at the clicked location
+          detectionMarker = L.marker(clickedPoint)
+            .setIcon(greenIcon)
+            .addTo(map)
+            .bindPopup("Detected by " + detectingSensors.length + " sensors")
+            .openPopup();
+        } else {
+          // Out of detection range
+          //   L.popup()
+          //     .setLatLng(clickedPoint)
+          //     .setContent("Out of detection range")
+          //     .openOn(map);
+        }
+      };
+
+      let followMouse = false;
+
+      // Handle map clicks
+      map.on("click", (e) => {
+        //console.log("click", e);
+        const clickedPoint = e.latlng;
+
+        updateDetectionLocation(clickedPoint);
+
+        followMouse = !followMouse;
+      });
+
+      map.on("mousemove", (e) => {
+        //console.log("move", e);
+        if (!followMouse) return;
+
+        const point = e.latlng;
+
+        updateDetectionLocation(point);
+      });
+    </script>
+  </body>
+</html>
