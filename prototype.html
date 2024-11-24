@@ -20,7 +20,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
       // Initialize the map
-      const map = L.map("map").setView([45.595, 14.457], 13); // Center at specific location with zoom level 13
+      const map = L.map("map").setView([45.68, 14.557], 12); // Center at specific location with zoom level 13
 
       const tileUrl =
         "https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=qdtvjq9Ve9ElOZVZ54IX";
@@ -85,20 +85,23 @@
         popupAnchor: [1, -34], // Point from which the popup should open relative to the iconAnchor
       });
 
-      // Add markers for sensors
-      allSensors.forEach(([lat, lng], index) => {
-        // Add sensor markers
-        const sensorMarker = L.marker([lat, lng])
-          .addTo(map)
-          .bindPopup(`Sensor ${index + 1}`);
+      map.on("keypress", (e) => {
+        // Add markers for sensors
+        allSensors.forEach(([lat, lng], index) => {
+          setTimeout(() => {
+            // Add sensor markers
+            const sensorMarker = L.marker([lat, lng])
+              .addTo(map)
+              .bindPopup(`Sensor ${index + 1}`);
 
-        // Store sensor data
-        sensors.push({
-          center: L.latLng(lat, lng),
-          radius: detectionRadius, // in meters
-          marker: sensorMarker,
+            // Store sensor data
+            sensors.push({
+              center: L.latLng(lat, lng),
+              radius: detectionRadius, // in meters
+              marker: sensorMarker,
+            });
+          }, 80 * index);
         });
-        console.log(sensorMarker);
       });
 
       // Layer groups for lines and markers
